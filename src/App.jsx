@@ -1,1 +1,0 @@
-import Barbeiros from './Barbeiros';
