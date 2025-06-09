@@ -1,54 +1,109 @@
-import React, { useEffect, useState } from 'react';
-import { collection, addDoc, deleteDoc, doc, onSnapshot } from 'firebase/firestore';
+import React, { useState, useEffect, useContext } from 'react';
 import { db } from '../firebase';
+import { collection, addDoc, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
+import { AuthContext } from '../contexts/AuthContext';
 
 const Produtos = () => {
-  const [produtos, setProdutos] = useState([]);
-  const [form, setForm] = useState({ nome: '', categoria: '', preco: '', estoque: '' });
+  const { currentUser, userType } = useContext(AuthContext);
+  const [produto, setProduto] = useState('');
+  const [valor, setValor] = useState('');
+  const [data, setData] = useState('');
+  const [produtosList, setProdutosList] = useState([]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!produto || !valor || !data) {
+      alert('Preencha todos os campos');
+      return;
+    }
+
+    try {
+      await addDoc(collection(db, 'produtos'), {
+        nome: produto,
+        valor: parseFloat(valor),
+        data,
+        barbeiroId: currentUser.uid,
+        barbeiroNome: currentUser.displayName || '',
+        criadoEm: serverTimestamp(),
+      });
+
+      setProduto('');
+      setValor('');
+      setData('');
+      fetchProdutos();
+    } catch (error) {
+      console.error('Erro ao adicionar produto:', error);
+    }
+  };
+
+  const fetchProdutos = async () => {
+    try {
+      const q = query(collection(db, 'produtos'), where('barbeiroId', '==', currentUser.uid));
+      const querySnapshot = await getDocs(q);
+      const lista = querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      setProdutosList(lista);
+    } catch (error) {
+      console.error('Erro ao buscar produtos:', error);
+    }
+  };
 
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, 'produtos'), (snapshot) => {
-      const lista = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setProdutos(lista);
-    });
-    return () => unsubscribe();
-  }, []);
+    if (userType === 'barbeiro') {
+      fetchProdutos();
+    }
+  }, [userType]);
 
-  const handleChange = e => setForm({ ...form, [e.target.name]: e.target.value });
-
-  const adicionarProduto = async e => {
-    e.preventDefault();
-    if (!form.nome || !form.preco || !form.estoque) return;
-    await addDoc(collection(db, 'produtos'), {
-      nome: form.nome,
-      categoria: form.categoria,
-      preco: parseFloat(form.preco),
-      estoque: parseInt(form.estoque)
-    });
-    setForm({ nome: '', categoria: '', preco: '', estoque: '' });
-  };
-
-  const excluirProduto = async (id) => {
-    await deleteDoc(doc(db, 'produtos', id));
-  };
+  if (userType !== 'barbeiro') {
+    return <div className="p-4 text-red-600">Acesso restrito aos barbeiros.</div>;
+  }
 
   return (
-    <div className="p-4 max-w-4xl mx-auto">
-      <h1 className="text-xl font-bold mb-4">Gerenciar Produtos</h1>
-
-      <form onSubmit={adicionarProduto} className="grid grid-cols-1 sm:grid-cols-4 gap-2 mb-6">
-        <input name="nome" placeholder="Nome" value={form.nome} onChange={handleChange} className="border p-2 rounded" required />
-        <input name="categoria" placeholder="Categoria" value={form.categoria} onChange={handleChange} className="border p-2 rounded" />
-        <input name="preco" placeholder="Preço" value={form.preco} onChange={handleChange} type="number" step="0.01" className="border p-2 rounded" required />
-        <input name="estoque" placeholder="Estoque" value={form.estoque} onChange={handleChange} type="number" className="border p-2 rounded" required />
-        <button type="submit" className="bg-green-500 text-white rounded p-2 col-span-1 sm:col-span-4">Adicionar Produto</button>
+    <div className="p-4 max-w-2xl mx-auto">
+      <h2 className="text-2xl font-bold mb-4">Cadastrar Produto Vendido</h2>
+      <form onSubmit={handleSubmit} className="space-y-4 bg-white p-4 rounded shadow">
+        <div>
+          <label className="block mb-1 font-medium">Produto</label>
+          <input
+            type="text"
+            className="w-full border border-gray-300 p-2 rounded"
+            value={produto}
+            onChange={(e) => setProduto(e.target.value)}
+            placeholder="Nome do produto"
+          />
+        </div>
+        <div>
+          <label className="block mb-1 font-medium">Valor</label>
+          <input
+            type="number"
+            step="0.01"
+            className="w-full border border-gray-300 p-2 rounded"
+            value={valor}
+            onChange={(e) => setValor(e.target.value)}
+            placeholder="Valor R$"
+          />
+        </div>
+        <div>
+          <label className="block mb-1 font-medium">Data</label>
+          <input
+            type="date"
+            className="w-full border border-gray-300 p-2 rounded"
+            value={data}
+            onChange={(e) => setData(e.target.value)}
+          />
+        </div>
+        <button type="submit" className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+          Cadastrar Produto
+        </button>
       </form>
 
+      <h3 className="text-xl font-semibold mt-6 mb-2">Produtos Vendidos</h3>
       <ul className="space-y-2">
-        {produtos.map(prod => (
-          <li key={prod.id} className="flex justify-between items-center border p-2 rounded">
-            <span>{prod.nome} - R${prod.preco?.toFixed(2)} - Estoque: {prod.estoque}</span>
-            <button onClick={() => excluirProduto(prod.id)} className="bg-red-500 text-white px-2 py-1 rounded">Excluir</button>
+        {produtosList.map((item) => (
+          <li key={item.id} className="border p-2 rounded bg-gray-50">
+            <div className="font-medium">{item.nome}</div>
+            <div>R$ {item.valor?.toFixed(2)}</div>
+            <div className="text-sm text-gray-500">Data: {item.data}</div>
           </li>
         ))}
       </ul>
