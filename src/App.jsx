@@ -1,7 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import Dashboard from "./pages/Dashboard";
-import DashboardBarbeiro from "./pages/DashboardBarbeiro";
 import Barbeiros from "./pages/Barbeiros";
 import Agendamentos from "./pages/Agendamentos";
 import Produtos from "./pages/Produtos";
@@ -15,8 +14,7 @@ export default function App() {
       <Navbar />
       <Routes>
         <Route path="/" element={<Dashboard />} />
-        <Route path="/dashboard-barbeiro" element={<DashboardBarbeiro />} />
-        <Route path="/barbeiros" element={<Barbeiros />} />
+            <Route path="/barbeiros" element={<Barbeiros />} />
         <Route path="/agendamentos" element={<Agendamentos />} />
         <Route path="/produtos" element={<Produtos />} />
         <Route path="/estoque" element={<Estoque />} />
