@@ -1,164 +1,140 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useEffect, useState } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { Pie } from 'react-chartjs-2';
+import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
+ChartJS.register(ArcElement, Tooltip, Legend);
 
 const Dashboard = () => {
   const { currentUser } = useAuth();
   const [servicos, setServicos] = useState([]);
   const [produtos, setProdutos] = useState([]);
-  const [usuarios, setUsuarios] = useState([]);
-  const [filtroData, setFiltroData] = useState('');
-  const [filtroTipo, setFiltroTipo] = useState('');
   const [filtroBarbeiro, setFiltroBarbeiro] = useState('');
+  const [filtroTipoServico, setFiltroTipoServico] = useState('');
+  const [filtroData, setFiltroData] = useState('');
 
   useEffect(() => {
-    const fetchServicos = async () => {
-      const querySnapshot = await getDocs(collection(db, 'servicos'));
-      const data = [];
-      querySnapshot.forEach((doc) => {
-        data.push({ ...doc.data(), id: doc.id });
-      });
-      setServicos(data);
+    const fetchData = async () => {
+      const servicosSnapshot = await getDocs(collection(db, 'servicos'));
+      const produtosSnapshot = await getDocs(collection(db, 'produtos'));
+
+      const servicosData = servicosSnapshot.docs.map(doc => doc.data());
+      const produtosData = produtosSnapshot.docs.map(doc => doc.data());
+
+      setServicos(servicosData);
+      setProdutos(produtosData);
     };
 
-    const fetchProdutos = async () => {
-      const querySnapshot = await getDocs(collection(db, 'produtos'));
-      const data = [];
-      querySnapshot.forEach((doc) => {
-        data.push({ ...doc.data(), id: doc.id });
-      });
-      setProdutos(data);
-    };
-
-    const fetchUsuarios = async () => {
-      const querySnapshot = await getDocs(collection(db, 'usuarios'));
-      const data = [];
-      querySnapshot.forEach((doc) => {
-        data.push(doc.id);
-      });
-      setUsuarios(data);
-    };
-
-    fetchServicos();
-    fetchProdutos();
-    fetchUsuarios();
+    fetchData();
   }, []);
 
-  const servicosFiltrados = servicos.filter((s) => {
-    const dataOk = filtroData ? s.data.toDate().toISOString().split('T')[0] === filtroData : true;
-    const tipoOk = filtroTipo ? s.tipoServico === filtroTipo : true;
-    const barbeiroOk = filtroBarbeiro ? s.barbeiroId === filtroBarbeiro : true;
-    return dataOk && tipoOk && barbeiroOk;
+  const servicosFiltrados = servicos.filter(servico => {
+    const data = servico.data?.toDate().toISOString().split('T')[0];
+    const dataFiltro = filtroData ? new Date(filtroData).toISOString().split('T')[0] : '';
+    return (
+      (!filtroBarbeiro || servico.barbeiroId === filtroBarbeiro) &&
+      (!filtroTipoServico || servico.tipoServico === filtroTipoServico) &&
+      (!filtroData || data === dataFiltro)
+    );
   });
 
-  const produtosFiltrados = produtos.filter((p) => {
-    const dataOk = filtroData ? p.data.toDate().toISOString().split('T')[0] === filtroData : true;
-    const barbeiroOk = filtroBarbeiro ? p.barbeiroId === filtroBarbeiro : true;
-    return dataOk && barbeiroOk;
+  const produtosFiltrados = produtos.filter(produto => {
+    const data = produto.data?.toDate().toISOString().split('T')[0];
+    const dataFiltro = filtroData ? new Date(filtroData).toISOString().split('T')[0] : '';
+    return (
+      (!filtroBarbeiro || produto.barbeiroId === filtroBarbeiro) &&
+      (!filtroData || data === dataFiltro)
+    );
   });
 
-  const totalBrutoServicos = servicosFiltrados.reduce((acc, curr) => acc + curr.valorServico, 0);
-  const totalLiquidoServicos = totalBrutoServicos * 0.6;
+  const totalBruto = servicosFiltrados.reduce((acc, curr) => acc + curr.valorServico, 0);
+  const totalLiquido = totalBruto * 0.6;
+  const totalProdutos = produtosFiltrados.reduce((acc, curr) => acc + curr.valorProduto, 0);
 
-  const totalBrutoProdutos = produtosFiltrados.reduce((acc, curr) => acc + curr.valorProduto, 0);
-  const totalLiquidoProdutos = totalBrutoProdutos * 0.6;
+  const barbeirosUnicos = [...new Set(servicos.map(s => s.barbeiroId))];
+  const tipos = [...new Set(servicos.map(s => s.tipoServico))];
+
+  const dadosBrutosPorTipo = tipos.map(tipo =>
+    servicosFiltrados.filter(s => s.tipoServico === tipo).reduce((acc, curr) => acc + curr.valorServico, 0)
+  );
+  const dadosLiquidosPorTipo = dadosBrutosPorTipo.map(valor => valor * 0.6);
+  const dadosPorBarbeiro = barbeirosUnicos.map(id =>
+    servicosFiltrados.filter(s => s.barbeiroId === id).reduce((acc, curr) => acc + curr.valorServico, 0)
+  );
 
   return (
     <div className="p-4">
-      <h2 className="text-2xl font-bold mb-4">Dashboard do ADMIN</h2>
+      <h1 className="text-2xl font-bold mb-4">Dashboard - Admin</h1>
 
-      <div className="flex flex-col md:flex-row gap-4 mb-4">
-        <div>
-          <label>Data:</label>
-          <input
-            type="date"
-            value={filtroData}
-            onChange={(e) => setFiltroData(e.target.value)}
-            className="border p-2 rounded ml-2"
-          />
+      <div className="mb-4 flex flex-wrap gap-2">
+        <select onChange={(e) => setFiltroBarbeiro(e.target.value)} className="border p-2 rounded">
+          <option value="">Todos os Barbeiros</option>
+          {barbeirosUnicos.map((id, idx) => (
+            <option key={idx} value={id}>{id}</option>
+          ))}
+        </select>
+
+        <select onChange={(e) => setFiltroTipoServico(e.target.value)} className="border p-2 rounded">
+          <option value="">Todos os Serviços</option>
+          {tipos.map((tipo, idx) => (
+            <option key={idx} value={tipo}>{tipo}</option>
+          ))}
+        </select>
+
+        <input type="date" onChange={(e) => setFiltroData(e.target.value)} className="border p-2 rounded" />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="bg-blue-100 p-4 rounded shadow">
+          <h2 className="text-lg font-semibold">Total Bruto (Serviços)</h2>
+          <p className="text-xl font-bold">R$ {totalBruto.toFixed(2)}</p>
         </div>
-        <div>
-          <label>Tipo:</label>
-          <select
-            value={filtroTipo}
-            onChange={(e) => setFiltroTipo(e.target.value)}
-            className="border p-2 rounded ml-2"
-          >
-            <option value="">Todos</option>
-            <option value="Corte">Corte</option>
-            <option value="Barba">Barba</option>
-            <option value="Sobrancelha">Sobrancelha</option>
-          </select>
+        <div className="bg-green-100 p-4 rounded shadow">
+          <h2 className="text-lg font-semibold">Total Líquido (60%)</h2>
+          <p className="text-xl font-bold">R$ {totalLiquido.toFixed(2)}</p>
         </div>
-        <div>
-          <label>Barbeiro:</label>
-          <select
-            value={filtroBarbeiro}
-            onChange={(e) => setFiltroBarbeiro(e.target.value)}
-            className="border p-2 rounded ml-2"
-          >
-            <option value="">Todos</option>
-            {usuarios.map((u) => (
-              <option key={u} value={u}>
-                {u}
-              </option>
-            ))}
-          </select>
+        <div className="bg-yellow-100 p-4 rounded shadow">
+          <h2 className="text-lg font-semibold">Total Produtos Vendidos</h2>
+          <p className="text-xl font-bold">R$ {totalProdutos.toFixed(2)}</p>
         </div>
       </div>
 
-      <div className="mb-4 space-y-1">
-        <p className="text-lg">Serviços Bruto: <span className="text-blue-600">R$ {totalBrutoServicos.toFixed(2)}</span></p>
-        <p className="text-lg">Serviços Líquido: <span className="text-green-600">R$ {totalLiquidoServicos.toFixed(2)}</span></p>
-        <p className="text-lg">Produtos Bruto: <span className="text-blue-600">R$ {totalBrutoProdutos.toFixed(2)}</span></p>
-        <p className="text-lg">Produtos Líquido: <span className="text-green-600">R$ {totalLiquidoProdutos.toFixed(2)}</span></p>
-      </div>
-
-      <div className="mt-6">
-        <h3 className="text-xl font-semibold mb-2">Serviços Registrados</h3>
-        <table className="w-full table-auto border mb-4">
-          <thead>
-            <tr className="bg-gray-100">
-              <th className="border px-2 py-1">Tipo</th>
-              <th className="border px-2 py-1">Valor</th>
-              <th className="border px-2 py-1">Data</th>
-              <th className="border px-2 py-1">Barbeiro</th>
-            </tr>
-          </thead>
-          <tbody>
-            {servicosFiltrados.map((s) => (
-              <tr key={s.id}>
-                <td className="border px-2 py-1">{s.tipoServico}</td>
-                <td className="border px-2 py-1">R$ {s.valorServico.toFixed(2)}</td>
-                <td className="border px-2 py-1">{s.data.toDate().toLocaleDateString()}</td>
-                <td className="border px-2 py-1">{s.barbeiroId}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        <h3 className="text-xl font-semibold mb-2">Produtos Vendidos</h3>
-        <table className="w-full table-auto border">
-          <thead>
-            <tr className="bg-gray-100">
-              <th className="border px-2 py-1">Produto</th>
-              <th className="border px-2 py-1">Valor</th>
-              <th className="border px-2 py-1">Data</th>
-              <th className="border px-2 py-1">Barbeiro</th>
-            </tr>
-          </thead>
-          <tbody>
-            {produtosFiltrados.map((p) => (
-              <tr key={p.id}>
-                <td className="border px-2 py-1">{p.nomeProduto}</td>
-                <td className="border px-2 py-1">R$ {p.valorProduto.toFixed(2)}</td>
-                <td className="border px-2 py-1">{p.data.toDate().toLocaleDateString()}</td>
-                <td className="border px-2 py-1">{p.barbeiroId}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div>
+          <h4 className="text-center font-semibold mb-2">Serviços Brutos por Tipo</h4>
+          <Pie data={{
+            labels: tipos,
+            datasets: [{
+              data: dadosBrutosPorTipo,
+              backgroundColor: ['#60a5fa', '#34d399', '#fbbf24'],
+              borderWidth: 1,
+            }],
+          }} />
+        </div>
+        <div>
+          <h4 className="text-center font-semibold mb-2">Serviços Líquidos por Tipo</h4>
+          <Pie data={{
+            labels: tipos,
+            datasets: [{
+              data: dadosLiquidosPorTipo,
+              backgroundColor: ['#3b82f6', '#10b981', '#f59e0b'],
+              borderWidth: 1,
+            }],
+          }} />
+        </div>
+        <div>
+          <h4 className="text-center font-semibold mb-2">Distribuição por Barbeiro</h4>
+          <Pie data={{
+            labels: barbeirosUnicos,
+            datasets: [{
+              data: dadosPorBarbeiro,
+              backgroundColor: ['#818cf8', '#f87171', '#4ade80', '#facc15', '#38bdf8'],
+              borderWidth: 1,
+            }],
+          }} />
+        </div>
       </div>
     </div>
   );
