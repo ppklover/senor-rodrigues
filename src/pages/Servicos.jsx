@@ -1,82 +1,72 @@
-import React, { useState, useContext } from 'react';
+// src/pages/Servicos.jsx
+import React, { useState } from 'react';
+import { collection, addDoc, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase';
-import { collection, addDoc } from 'firebase/firestore';
-import { AuthContext } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/AuthContext';
 
-function Servicos() {
-  const { currentUser } = useContext(AuthContext);
-  const [tipo, setTipo] = useState('');
-  const [valor, setValor] = useState('');
-  const [data, setData] = useState('');
+const Servicos = () => {
+  const [tipoServico, setTipoServico] = useState('');
+  const [valorServico, setValorServico] = useState('');
+  const { currentUser } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!tipo || !valor || !data) {
+
+    if (!tipoServico || !valorServico) {
       alert('Preencha todos os campos');
       return;
     }
 
     try {
       await addDoc(collection(db, 'servicos'), {
-        tipo,
-        valor: parseFloat(valor),
-        data,
-        barbeiroId: currentUser.uid,
-        barbeiroNome: currentUser.displayName || currentUser.email,
-        criadoEm: new Date()
+        tipoServico,
+        valorServico: parseFloat(valorServico),
+        data: Timestamp.now(),
+        barbeiroId: currentUser.email,
       });
-      setTipo('');
-      setValor('');
-      setData('');
+
+      setTipoServico('');
+      setValorServico('');
       alert('Serviço registrado com sucesso!');
     } catch (error) {
-      console.error('Erro ao salvar serviço:', error);
-      alert('Erro ao salvar. Tente novamente.');
+      console.error('Erro ao adicionar serviço:', error);
+      alert('Erro ao adicionar serviço');
     }
   };
 
   return (
-    <div className="max-w-xl mx-auto p-6 bg-white rounded-lg shadow-md mt-6">
-      <h2 className="text-2xl font-bold mb-4">Registrar Serviço</h2>
-      <form onSubmit={handleSubmit} className="space-y-4">
+    <div className="p-4 max-w-md mx-auto">
+      <h2 className="text-xl font-bold mb-4">Registrar Serviço</h2>
+      <form onSubmit={handleSubmit} className="space-y-4 bg-white p-4 rounded shadow">
         <div>
-          <label className="block mb-1 font-medium">Tipo de Serviço</label>
+          <label className="block text-sm font-medium mb-1">Tipo de Serviço</label>
           <input
             type="text"
+            value={tipoServico}
+            onChange={(e) => setTipoServico(e.target.value)}
             className="w-full border border-gray-300 rounded px-3 py-2"
-            placeholder="Ex: Corte, Barba, Sobrancelha"
-            value={tipo}
-            onChange={(e) => setTipo(e.target.value)}
+            placeholder="Ex: Corte, Barba"
           />
         </div>
         <div>
-          <label className="block mb-1 font-medium">Valor (R$)</label>
+          <label className="block text-sm font-medium mb-1">Valor (R$)</label>
           <input
             type="number"
+            value={valorServico}
+            onChange={(e) => setValorServico(e.target.value)}
             className="w-full border border-gray-300 rounded px-3 py-2"
-            placeholder="Ex: 25"
-            value={valor}
-            onChange={(e) => setValor(e.target.value)}
-          />
-        </div>
-        <div>
-          <label className="block mb-1 font-medium">Data</label>
-          <input
-            type="date"
-            className="w-full border border-gray-300 rounded px-3 py-2"
-            value={data}
-            onChange={(e) => setData(e.target.value)}
+            placeholder="Ex: 30"
           />
         </div>
         <button
           type="submit"
-          className="bg-black text-white px-4 py-2 rounded hover:bg-gray-800"
+          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded"
         >
           Salvar Serviço
         </button>
       </form>
     </div>
   );
-}
+};
 
 export default Servicos;
