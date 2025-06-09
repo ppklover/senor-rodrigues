@@ -1,20 +1,24 @@
-import { useState } from 'react';
-import Barbeiros from './Barbeiros';
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import Navbar from "./components/Navbar";
+import Dashboard from "./pages/Dashboard";
+import Barbeiros from "./pages/Barbeiros";
+import Agendamentos from "./pages/Agendamentos";
+import Produtos from "./pages/Produtos";
+import Estoque from "./pages/Estoque";
+import Relatorios from "./pages/Relatorios";
 
 export default function App() {
-  const [tab, setTab] = useState('barbeiros');
-
   return (
-    <div className="min-h-screen bg-gray-100 text-gray-900">
-      <header className="bg-black text-white p-4 text-center text-xl font-bold">SEÑOR RODRIGUES</header>
-      <nav className="flex justify-around bg-white shadow p-2">
-        <button onClick={() => setTab('dashboard')}>Dashboard</button>
-        <button onClick={() => setTab('barbeiros')}>Barbeiros</button>
-      </nav>
-      <main className="p-4">
-        {tab === 'barbeiros' && <Barbeiros />}
-        {tab === 'dashboard' && <div>Painel geral</div>}
-      </main>
-    </div>
+    <Router>
+      <Navbar />
+      <Routes>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/barbeiros" element={<Barbeiros />} />
+        <Route path="/agendamentos" element={<Agendamentos />} />
+        <Route path="/produtos" element={<Produtos />} />
+        <Route path="/estoque" element={<Estoque />} />
+        <Route path="/relatorios" element={<Relatorios />} />
+      </Routes>
+    </Router>
   );
 }
