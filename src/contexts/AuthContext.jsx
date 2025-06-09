@@ -1,36 +1,21 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useState, useEffect } from 'react';
 
-// Criação do contexto
-const AuthContext = createContext();
+export const AuthContext = createContext();
 
-// Provedor do contexto
 export const AuthProvider = ({ children }) => {
-  const [usuarioLogado, setUsuarioLogado] = useState(null);
+  const [user, setUser] = useState(null);
 
   useEffect(() => {
-    // Simulação de login
-    const userStorage = localStorage.getItem("usuarioLogado");
-    if (userStorage) {
-      setUsuarioLogado(JSON.parse(userStorage));
+    // Simula login automático do Jucemar
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
     }
   }, []);
 
-  const login = (usuario) => {
-    setUsuarioLogado(usuario);
-    localStorage.setItem("usuarioLogado", JSON.stringify(usuario));
-  };
-
-  const logout = () => {
-    setUsuarioLogado(null);
-    localStorage.removeItem("usuarioLogado");
-  };
-
   return (
-    <AuthContext.Provider value={{ usuarioLogado, login, logout }}>
+    <AuthContext.Provider value={{ user, setUser }}>
       {children}
     </AuthContext.Provider>
   );
 };
-
-// Hook personalizado para acessar o contexto
-export const useAuth = () => useContext(AuthContext);
